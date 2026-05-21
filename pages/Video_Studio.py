@@ -5,15 +5,16 @@ import base64
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-# ---------------- SAFE MOVIEPY IMPORT ---------------- #
+# ---------------- SAFE MOVIEPY IMPORT WITH ERROR DISPLAY ---------------- #
 
 try:
     from moviepy.editor import VideoFileClip
     from moviepy.video.fx.all import crop
     MOVIEPY_AVAILABLE = True
-except Exception:
+    MOVIEPY_ERROR = ""
+except Exception as e:
     MOVIEPY_AVAILABLE = False
-
+    MOVIEPY_ERROR = str(e)
 
 st.set_page_config(page_title="AI Video Studio", page_icon="🎥", layout="wide")
 
@@ -110,17 +111,13 @@ Convert landscape videos into vertical reels, trim clips, add captions, and appl
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------- CLOUD CHECK ---------------- #
+# ---------------- MOVIEPY CHECK ---------------- #
 
 if not MOVIEPY_AVAILABLE:
-    st.error(
-        "Video Studio is unavailable on Streamlit Cloud because MoviePy/FFmpeg dependencies failed to load. "
-        "Please use the local desktop version for full video editing features."
-    )
-    st.info(
-        "The online version still supports Image Studio and Text Studio. "
-        "For Video Studio, run the project locally using: streamlit run App.py"
-    )
+    st.error("Video Studio could not load MoviePy on Streamlit Cloud.")
+    st.write("Please copy this error and send it:")
+    st.code(MOVIEPY_ERROR)
+    st.info("This debug message helps identify the exact missing dependency.")
     st.stop()
 
 # ---------------- PILLOW FIX FOR MOVIEPY ---------------- #
@@ -172,9 +169,9 @@ def add_caption_to_frame(frame, text):
     draw = ImageDraw.Draw(img)
 
     try:
-        font = ImageFont.truetype("arial.ttf", 46)
+        caption_font = ImageFont.truetype("arial.ttf", 46)
     except:
-        font = ImageFont.load_default()
+        caption_font = ImageFont.load_default()
 
     w, h = img.size
     box_height = 110
@@ -185,13 +182,13 @@ def add_caption_to_frame(frame, text):
         fill=(0, 0, 0)
     )
 
-    bbox = draw.textbbox((0, 0), text, font=font)
+    bbox = draw.textbbox((0, 0), text, font=caption_font)
     text_w = bbox[2] - bbox[0]
 
     x = (w - text_w) // 2
     y = y_box + 30
 
-    draw.text((x, y), text, font=font, fill=(255, 255, 255))
+    draw.text((x, y), text, font=caption_font, fill=(255, 255, 255))
 
     return np.array(img)
 
@@ -370,7 +367,7 @@ if uploaded_video:
     st.subheader("📹 Uploaded Video Preview")
     st.video(input_path)
 
-    st.info("Tip: Use short 10–20 second clips for faster processing, especially on Streamlit Cloud.")
+    st.info("Tip: Use short 5–10 second MP4 clips first for online testing.")
 
     if generate:
         try:
