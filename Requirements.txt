@@ -1,0 +1,9 @@
+streamlit
+pillow
+numpy
+moviepy==1.0.3
+imageio
+imageio-ffmpeg
+opencv-python-headless
+rembg
+onnxruntime
