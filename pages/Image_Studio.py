@@ -2,8 +2,11 @@ import streamlit as st
 from PIL import Image, ImageFilter, ImageEnhance, ImageOps, ImageDraw, ImageFont
 import numpy as np
 import io
-import random
 import base64
+
+st.set_page_config(page_title="AI Image Studio", page_icon="🎨", layout="wide")
+
+# ---------------- BACKGROUND ---------------- #
 
 def image_to_base64(path):
     with open(path, "rb") as f:
@@ -12,15 +15,12 @@ def image_to_base64(path):
 img_bg1 = image_to_base64("assets/image1.jpg")
 img_bg2 = image_to_base64("assets/image2.jpg")
 
-st.set_page_config(page_title="AI Image Studio", page_icon="🎨", layout="wide")
-
-if st.button("🏠 Back to Home"):
-    st.switch_page("app.py")
 # ---------------- UI ---------------- #
+
 st.markdown(f"""
 <style>
 [data-testid="stAppViewContainer"] {{
-    animation: imageStudioBg 24s infinite;
+    animation: imageStudioBg 18s infinite;
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -30,11 +30,11 @@ st.markdown(f"""
     0% {{
         background-image: linear-gradient(rgba(0,0,0,.72), rgba(0,0,0,.88)), url("data:image/jpg;base64,{img_bg1}");
     }}
-    25% {{
+    50% {{
         background-image: linear-gradient(rgba(0,0,0,.72), rgba(0,0,0,.88)), url("data:image/jpg;base64,{img_bg2}");
     }}
- 
-    100% {{ background-image: linear-gradient(rgba(0,0,0,.72), rgba(0,0,0,.88)), url("data:image/jpg;base64,{img_bg1}");
+    100% {{
+        background-image: linear-gradient(rgba(0,0,0,.72), rgba(0,0,0,.88)), url("data:image/jpg;base64,{img_bg1}");
     }}
 }}
 
@@ -49,6 +49,16 @@ st.markdown(f"""
     text-align: center;
     color: white;
     text-shadow: 0 0 22px cyan;
+    margin-bottom: 20px;
+}}
+
+.info-box {{
+    background: rgba(0,0,0,.58);
+    padding: 22px;
+    border-radius: 18px;
+    color: white;
+    border: 1px solid rgba(255,255,255,.16);
+    margin-bottom: 25px;
 }}
 
 .stButton>button {{
@@ -58,11 +68,37 @@ st.markdown(f"""
     border: none;
     background: linear-gradient(90deg,#00e5ff,#0066ff);
     color: white;
+    font-size: 17px;
     font-weight: 800;
+}}
+
+.stButton>button:hover {{
+    box-shadow: 0 0 25px cyan;
+    transform: scale(1.02);
+}}
+
+[data-testid="stFileUploader"] {{
+    background: rgba(255,255,255,.08);
+    border-radius: 16px;
+    padding: 14px;
 }}
 </style>
 """, unsafe_allow_html=True)
+
 st.markdown('<div class="main-title">🎨 AI Image Studio</div>', unsafe_allow_html=True)
+
+if st.button("🏠 Back to Home"):
+    st.switch_page("App.py")
+
+st.markdown("""
+<div class="info-box">
+<h3>🚀 Image Editing & Creator Tools</h3>
+<p>
+Create thumbnails, posters, memes, profile pictures, cinematic images, gaming-style edits and background removal outputs.
+For best results, use clear portraits, product photos, or simple background images.
+</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ---------------- HELPERS ---------------- #
 
@@ -84,10 +120,15 @@ def font(size):
 
 @st.cache_data
 def remove_bg_fast(img_bytes):
-    from rembg import remove
-    return remove(img_bytes)
+    try:
+        from rembg import remove
+        return remove(img_bytes)
+    except ModuleNotFoundError:
+        return None
+    except Exception:
+        return None
 
-# ---------------- RELIABLE EFFECTS ---------------- #
+# ---------------- EFFECTS ---------------- #
 
 def cyberpunk(img):
     img = ImageEnhance.Color(img).enhance(2.3)
@@ -124,8 +165,12 @@ def sketch(img):
 def background_remove(img):
     b = io.BytesIO()
     img.save(b, format="PNG")
-    out = remove_bg_fast(b.getvalue())
-    return Image.open(io.BytesIO(out)).convert("RGBA")
+    result = remove_bg_fast(b.getvalue())
+
+    if result is None:
+        return None
+
+    return Image.open(io.BytesIO(result)).convert("RGBA")
 
 def profile_picture(img):
     size = 800
@@ -133,15 +178,15 @@ def profile_picture(img):
 
     mask = Image.new("L", (size, size), 0)
     d = ImageDraw.Draw(mask)
-    d.ellipse((25, 25, size-25, size-25), fill=255)
+    d.ellipse((25, 25, size - 25, size - 25), fill=255)
 
     output = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     output.paste(img, (0, 0), mask)
 
     ring = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     rd = ImageDraw.Draw(ring)
-    rd.ellipse((18, 18, size-18, size-18), outline=(0, 255, 255, 255), width=16)
-    rd.ellipse((42, 42, size-42, size-42), outline=(255, 0, 255, 170), width=8)
+    rd.ellipse((18, 18, size - 18, size - 18), outline=(0, 255, 255, 255), width=16)
+    rd.ellipse((42, 42, size - 42, size - 42), outline=(255, 0, 255, 170), width=8)
 
     return Image.alpha_composite(output, ring).convert("RGB")
 
@@ -198,7 +243,7 @@ def youtube_thumbnail(img, text, style):
     small = font(62)
 
     words = text.upper().split() if text else ["BEST", "THUMBNAIL"]
-    mid = max(1, len(words)//2)
+    mid = max(1, len(words) // 2)
     line1 = " ".join(words[:mid])
     line2 = " ".join(words[mid:])
 
@@ -282,73 +327,69 @@ if uploaded:
     with col1:
         st.subheader("📸 Original")
         st.image(img, use_container_width=True)
- 
-if run:
 
-     try:
+    if run:
+        try:
+            with st.spinner("🎨 Creating professional output..."):
 
-         with st.spinner("Generating image..."):
+                if tool == "Basic Effects":
+                    if effect == "Cyberpunk":
+                        out = cyberpunk(img)
+                    elif effect == "Neon Glow":
+                        out = neon_glow(img)
+                    elif effect == "Gaming Sharp":
+                        out = gaming_sharp(img)
+                    elif effect == "Cinematic":
+                        out = cinematic(img)
+                    elif effect == "Sketch":
+                        out = sketch(img)
+                    elif effect == "Grayscale":
+                        out = ImageOps.grayscale(img).convert("RGB")
+                    else:
+                        out = img
 
-          if tool == "Basic Effects":
+                elif tool == "Background Remover":
+                    removed = background_remove(img)
 
-                if effect == "Cyberpunk":
-                    out = cyberpunk(img)
+                    if removed is None:
+                        st.warning(
+                            "Background Remover is not available on Streamlit Cloud. "
+                            "Please use this feature in the local version of the project."
+                        )
+                        out = img
+                    else:
+                        out = removed
 
-                elif effect == "Neon Glow":
-                    out = neon_glow(img)
+                elif tool == "YouTube Thumbnail":
+                    out = youtube_thumbnail(img, thumb_text, thumb_style)
 
-                elif effect == "Gaming Sharp":
-                    out = gaming_sharp(img)
+                elif tool == "Meme Generator":
+                    out = meme_generator(img, top_text, bottom_text)
 
-                elif effect == "Cinematic":
-                    out = cinematic(img)
+                elif tool == "Poster Maker":
+                    out = poster_maker(img, title_text)
 
-                elif effect == "Sketch":
-                    out = sketch(img)
-
-                elif effect == "Grayscale":
-                    out = ImageOps.grayscale(img).convert("RGB")
+                elif tool == "Profile Picture Maker":
+                    out = profile_picture(img)
 
                 else:
                     out = img
 
-          elif tool == "Background Remover":
-                out = background_remove(img)
+            st.success("✅ Image generated successfully!")
 
-          elif tool == "YouTube Thumbnail":
-                out = youtube_thumbnail(img, thumb_text, thumb_style)
+            with col2:
+                st.subheader("🎨 Output")
+                st.image(out, use_container_width=True)
 
-          elif tool == "Meme Generator":
-                out = meme_generator(img, top_text, bottom_text)
+            st.download_button(
+                "💾 Download Output",
+                download_bytes(out.convert("RGB")),
+                "output.png"
+            )
 
-          elif tool == "Poster Maker":
-                out = poster_maker(img, title_text)
-
-          elif tool == "Profile Picture Maker":
-                out = profile_picture(img)
-
-          else:
-                out = img
-
-         st.success("✅ Image generated successfully!")
-
-         with col2:
-            st.subheader("🎨 Output")
-            st.image(out, use_container_width=True)
-
-         st.download_button(
-            "💾 Download Output",
-            download_bytes(out.convert("RGB")),
-            "output.png"
-        )
-
-     except Exception as e:
-
-        st.error("Something went wrong while processing the image.")
-        st.caption(f"Technical error: {e}")
+        except Exception as e:
+            st.error("Something went wrong while processing the image. Please try a smaller or clearer image.")
+            st.caption(f"Technical error: {e}")
 
 else:
-
     st.info("👈 Upload a clear image from the sidebar. For best results, use portraits, product photos, or simple backgrounds.")
-
-    
