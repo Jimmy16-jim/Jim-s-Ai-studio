@@ -1,18 +1,21 @@
 import streamlit as st
-from moviepy.editor import VideoFileClip
-from moviepy.video.fx.all import crop
-from PIL import Image, ImageDraw, ImageFont 
-import numpy as np
 import tempfile
 import os
-import base64 
+import base64
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
-if not hasattr(Image, "ANTIALIAS"):
-    Image.ANTIALIAS = Image.Resampling.LANCZOS 
+# ---------------- SAFE MOVIEPY IMPORT ---------------- #
+
+try:
+    from moviepy.editor import VideoFileClip
+    from moviepy.video.fx.all import crop
+    MOVIEPY_AVAILABLE = True
+except Exception:
+    MOVIEPY_AVAILABLE = False
+
 
 st.set_page_config(page_title="AI Video Studio", page_icon="🎥", layout="wide")
-if st.button("🏠 Back to Home"):
-    st.switch_page("app.py")
 
 # ---------------- BACKGROUND IMAGES ---------------- #
 
@@ -61,7 +64,7 @@ st.markdown(f"""
 }}
 
 .info-box {{
-    background: rgba(0,0,0,.55);
+    background: rgba(0,0,0,.58);
     padding: 24px;
     border-radius: 20px;
     color: white;
@@ -95,14 +98,35 @@ st.markdown(f"""
 
 st.markdown('<div class="title">🎥 AI Video Studio</div>', unsafe_allow_html=True)
 
+if st.button("🏠 Back to Home"):
+    st.switch_page("App.py")
+
 st.markdown("""
 <div class="info-box">
 <h3>🚀 Video Editing & Reel Converter</h3>
 <p>
-Convert landscape videos into vertical reels, trim clips, add captions, and apply creative video filters such as cinematic, black & white, gaming RGB, warm tone, cool tone, and AI clear video enhancement.
+Convert landscape videos into vertical reels, trim clips, add captions, and apply creative video filters such as cinematic, black & white, gaming RGB, warm tone, cool tone, and AI clear enhancement.
 </p>
 </div>
 """, unsafe_allow_html=True)
+
+# ---------------- CLOUD CHECK ---------------- #
+
+if not MOVIEPY_AVAILABLE:
+    st.error(
+        "Video Studio is unavailable on Streamlit Cloud because MoviePy/FFmpeg dependencies failed to load. "
+        "Please use the local desktop version for full video editing features."
+    )
+    st.info(
+        "The online version still supports Image Studio and Text Studio. "
+        "For Video Studio, run the project locally using: streamlit run App.py"
+    )
+    st.stop()
+
+# ---------------- PILLOW FIX FOR MOVIEPY ---------------- #
+
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
 
 # ---------------- VIDEO FUNCTIONS ---------------- #
 
@@ -153,7 +177,6 @@ def add_caption_to_frame(frame, text):
         font = ImageFont.load_default()
 
     w, h = img.size
-
     box_height = 110
     y_box = h - box_height - 45
 
@@ -208,8 +231,7 @@ def apply_video_filter(frame, effect):
         arr = (arr - 128) * 1.30 + 128
         arr *= 1.08
 
-    arr = np.clip(arr, 0, 255).astype(np.uint8)
-    return arr
+    return np.clip(arr, 0, 255).astype(np.uint8)
 
 
 def process_video(input_path, start_time, end_time, make_vertical, caption_text, effect, quality):
@@ -252,7 +274,7 @@ def process_video(input_path, start_time, end_time, make_vertical, caption_text,
         fps=fps,
         preset=preset,
         bitrate=bitrate,
-        threads=4,
+        threads=2,
         verbose=False,
         logger=None
     )
@@ -300,7 +322,12 @@ preset = st.sidebar.selectbox("Quick Duration Preset", [
     "60 sec Clip"
 ])
 
-start_time = st.sidebar.number_input("Start Time (seconds)", min_value=0.0, value=0.0, step=1.0)
+start_time = st.sidebar.number_input(
+    "Start Time (seconds)",
+    min_value=0.0,
+    value=0.0,
+    step=1.0
+)
 
 if preset == "15 sec Reel":
     end_time = start_time + 15
@@ -309,10 +336,14 @@ elif preset == "30 sec Short":
 elif preset == "60 sec Clip":
     end_time = start_time + 60
 else:
-    end_time = st.sidebar.number_input("End Time (seconds)", min_value=1.0, value=10.0, step=1.0)
+    end_time = st.sidebar.number_input(
+        "End Time (seconds)",
+        min_value=1.0,
+        value=10.0,
+        step=1.0
+    )
 
 caption_text = ""
-
 make_vertical = False
 
 if tool == "Convert to Reel Format":
@@ -339,9 +370,11 @@ if uploaded_video:
     st.subheader("📹 Uploaded Video Preview")
     st.video(input_path)
 
+    st.info("Tip: Use short 10–20 second clips for faster processing, especially on Streamlit Cloud.")
+
     if generate:
-        with st.spinner("Processing video... Use short clips for faster export."):
-            try:
+        try:
+            with st.spinner("🎬 Processing video... Please wait."):
                 output_path = process_video(
                     input_path=input_path,
                     start_time=start_time,
@@ -352,21 +385,25 @@ if uploaded_video:
                     quality=quality
                 )
 
-                st.success("✅ Video generated successfully!")
+            st.success("✅ Video generated successfully!")
 
-                st.subheader("🎬 Output Video")
-                st.video(output_path)
+            st.subheader("🎬 Output Video")
+            st.video(output_path)
 
-                with open(output_path, "rb") as f:
-                    st.download_button(
-                        "💾 Download Video",
-                        f.read(),
-                        file_name="jim_ai_studio_video.mp4",
-                        mime="video/mp4"
-                    )
+            with open(output_path, "rb") as f:
+                st.download_button(
+                    "💾 Download Video",
+                    f.read(),
+                    file_name="jim_ai_studio_video.mp4",
+                    mime="video/mp4"
+                )
 
-            except Exception as e:
-                st.error(f"Error: {e}")
+        except Exception as e:
+            st.error(
+                "Something went wrong while processing the video. "
+                "Please try a smaller clip, shorter duration, or Fast Export mode."
+            )
+            st.caption(f"Technical error: {e}")
 
 else:
     st.info("👈 Upload a video from sidebar to start.")
