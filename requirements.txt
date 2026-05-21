@@ -1,9 +1,10 @@
 streamlit==1.35.0
-pillow
-numpy
+pillow==10.4.0
+numpy==1.26.4
 moviepy==1.0.3
-imageio
-imageio-ffmpeg
-opencv-python-headless
-ffmpeg-python
-proglog
+imageio==2.34.2
+imageio-ffmpeg==0.5.1
+proglog==0.1.10
+decorator==4.4.2
+tqdm
+requests
